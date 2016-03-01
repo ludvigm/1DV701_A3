@@ -1,11 +1,14 @@
 import java.io.IOException;
 import java.net.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class TFTPServerAlexShit {
 	public static final int TFTPPORT = 4970;
 	public static final int BUFSIZE = 516;
-	public static final String READDIR = "/read/";
-	public static final String WRITEDIR = "/write/";
+	public static final String READDIR = "/home/username/read/";
+	public static final String WRITEDIR = "/home/username/write/";
 	public static final int OP_RRQ = 1;
 	public static final int OP_WRQ = 2;
 	public static final int OP_DAT = 3;
@@ -30,7 +33,7 @@ public class TFTPServerAlexShit {
 
 		/* Create socket */
 		DatagramSocket socket= new DatagramSocket(null);
-		
+
 		/* Create local bind point */
 		SocketAddress localBindPoint= new InetSocketAddress(TFTPPORT);
 		socket.bind(localBindPoint);
@@ -48,9 +51,9 @@ public class TFTPServerAlexShit {
 			new Thread() {
 				public void run() {
 					try {
-						DatagramSocket sendSocket= new DatagramSocket(0);
+						DatagramSocket sendSocket= new DatagramSocket(clientAddress);
 
-						System.out.printf("%s request for  from %s using port %d\n",
+						System.out.printf("%s request for %s from %s using port %d\n",
 								(reqtype == OP_RRQ)?"Read":"Write",  clientAddress.getHostName(), clientAddress.getPort());
 
 						if (reqtype == OP_RRQ) {      /* read request */
@@ -59,8 +62,7 @@ public class TFTPServerAlexShit {
 						}
 						else {                       /* write request */
 							requestedFile.insert(0, WRITEDIR);
-                            System.out.println("Writing to: " + requestedFile.toString());
-                            HandleRQ(sendSocket,requestedFile.toString(),OP_WRQ);
+							HandleRQ(sendSocket,requestedFile.toString(),OP_WRQ);
 						}
 						sendSocket.close();
 					} catch (SocketException e) {
@@ -92,7 +94,6 @@ public class TFTPServerAlexShit {
 		System.out.println("From host: " + receivePackage.getAddress());
 		System.out.println("Host port: " + receivePackage.getPort());
 		System.out.println("Length: " + receivePackage.getLength());
-		System.out.println("Containing: " );
 
 		return  new InetSocketAddress(receivePackage.getAddress(),receivePackage.getPort());
 	}
@@ -110,7 +111,23 @@ public class TFTPServerAlexShit {
 		return opcode;
 	}
 
-	private void HandleRQ(DatagramSocket sendSocket, String file, int opRrq) {
+	private void HandleRQ(DatagramSocket sendSocket, String string, int opRrq) {
+
+		byte[] byteShit = new byte[512];
+		if(opRrq == 1){
+			Path path = Paths.get(string);
+			try {
+				byte[] data = Files.readAllBytes(path);
+				DatagramPacket packet = new DatagramPacket(data,data.length);
+				sendSocket.send(packet);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+		}else if(opRrq == 2){
+
+		}
+
 
 	}
 }
