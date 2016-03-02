@@ -1,13 +1,12 @@
 import java.io.IOException;
 import java.net.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.ByteBuffer;
+import java.nio.file.NoSuchFileException;
 
 public class TFTPServerAlexShit {
 	public static final int TFTPPORT = 4970;
 	public static final int BUFSIZE = 516;
-	public static final String READDIR = "/home/username/read/";
+	public static final String READDIR = "/read/";
 	public static final String WRITEDIR = "/home/username/write/";
 	public static final int OP_RRQ = 1;
 	public static final int OP_WRQ = 2;
@@ -15,6 +14,7 @@ public class TFTPServerAlexShit {
 	public static final int OP_ACK = 4;
 	public static final int OP_ERR = 5;
 	DatagramPacket receivePackage;
+	byte[] data;
 
 	public static void main(String[] args) {
 		if (args.length > 0) {
@@ -41,6 +41,7 @@ public class TFTPServerAlexShit {
 		System.out.printf("Listening at port %d for new requests\n", TFTPPORT);
 
 		while(true) {        /* Loop to handle various requests */
+
 			final InetSocketAddress clientAddress= receiveFrom(socket, buf);
 			if (clientAddress == null) /* If clientAddress is null, an error occurred in receiveFrom()*/
 				continue;
@@ -49,11 +50,11 @@ public class TFTPServerAlexShit {
 			final int reqtype = ParseRQ(buf, requestedFile);
 
 			new Thread() {
-				public void run() {
+			public void run() {
 					try {
-						DatagramSocket sendSocket= new DatagramSocket(clientAddress);
+						DatagramSocket sendSocket= new DatagramSocket(0);
 
-						System.out.printf("%s request for %s from %s using port %d\n",
+						System.out.printf("%s request for from %s using port %d\n",
 								(reqtype == OP_RRQ)?"Read":"Write",  clientAddress.getHostName(), clientAddress.getPort());
 
 						if (reqtype == OP_RRQ) {      /* read request */
@@ -80,6 +81,7 @@ public class TFTPServerAlexShit {
 	 */
 
 	private InetSocketAddress receiveFrom(DatagramSocket socket, byte[] buf) {
+
 		receivePackage = new DatagramPacket(buf,buf.length);
 		System.out.println("Receiving packet..");
 
@@ -90,36 +92,43 @@ public class TFTPServerAlexShit {
 			System.exit(1);
 		}
 
+		data = receivePackage.getData();
 		System.out.println("Server: Packet received:");
 		System.out.println("From host: " + receivePackage.getAddress());
 		System.out.println("Host port: " + receivePackage.getPort());
 		System.out.println("Length: " + receivePackage.getLength());
+		buf= new byte[BUFSIZE];
 
 		return  new InetSocketAddress(receivePackage.getAddress(),receivePackage.getPort());
 	}
 
 	private int ParseRQ(byte[] buf, StringBuffer requestedFile) {
-		StringBuilder sb = new StringBuilder();
-		byte[] data = receivePackage.getData();
-		for(int i =0;i<2;i++){
-			sb.append(data[i]);
-		}
-		System.out.println("OPCODE: "+sb.toString());
+		ByteBuffer wrap= ByteBuffer.wrap(buf);
+		short opcode = wrap.getShort();
+		// We can now parse the request message for opcode and requested file as:
+		requestedFile.append(new String(buf, 2, buf.length-2)); // where readBytes is the number of bytes read into the byte array buf.
 
-		int opcode = Integer.parseInt(sb.toString());
-		System.out.println("OPCODE AS INT: "+opcode);
+		System.out.println("OPCODE " +opcode);
 		return opcode;
 	}
 
 	private void HandleRQ(DatagramSocket sendSocket, String string, int opRrq) {
 
-		byte[] byteShit = new byte[512];
+		byte[] dong = new byte[512];
+
+		String splittedString[] = string.split("\0");
 		if(opRrq == 1){
-			Path path = Paths.get(string);
+
 			try {
-				byte[] data = Files.readAllBytes(path);
-				DatagramPacket packet = new DatagramPacket(data,data.length);
+				String path = splittedString[0];
+				byte[] file = path.getBytes();
+
+				file = ByteBuffer.allocate(1).putInt(3).array();
+
+				DatagramPacket packet = new DatagramPacket(file,file.length);
 				sendSocket.send(packet);
+			} catch (NoSuchFileException e){
+				System.out.println("The requested file couldn't be found in :");
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
