@@ -1,20 +1,20 @@
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
-import java.nio.file.NoSuchFileException;
 
 public class TFTPServerAlexShit {
 	public static final int TFTPPORT = 4970;
 	public static final int BUFSIZE = 516;
-	public static final String READDIR = "/read/";
+	public static final String READDIR = "src/read/";
 	public static final String WRITEDIR = "/home/username/write/";
 	public static final int OP_RRQ = 1;
 	public static final int OP_WRQ = 2;
 	public static final int OP_DAT = 3;
 	public static final int OP_ACK = 4;
 	public static final int OP_ERR = 5;
-	DatagramPacket receivePackage;
-	byte[] data;
 
 	public static void main(String[] args) {
 		if (args.length > 0) {
@@ -41,21 +41,23 @@ public class TFTPServerAlexShit {
 		System.out.printf("Listening at port %d for new requests\n", TFTPPORT);
 
 		while(true) {        /* Loop to handle various requests */
-
-			final InetSocketAddress clientAddress= receiveFrom(socket, buf);
+			final InetSocketAddress clientAddress =
+					receiveFrom(socket, buf);
 			if (clientAddress == null) /* If clientAddress is null, an error occurred in receiveFrom()*/
 				continue;
 
-			final StringBuffer requestedFile= new StringBuffer();
+			final StringBuffer requestedFile = new StringBuffer();
 			final int reqtype = ParseRQ(buf, requestedFile);
 
 			new Thread() {
-			public void run() {
+				public void run() {
 					try {
-						DatagramSocket sendSocket= new DatagramSocket(0);
+						DatagramSocket sendSocket = new DatagramSocket(0);
+						sendSocket.connect(clientAddress);
 
-						System.out.printf("%s request for from %s using port %d\n",
-								(reqtype == OP_RRQ)?"Read":"Write",  clientAddress.getHostName(), clientAddress.getPort());
+						System.out.printf("%s request for %s from %s using port %d\n",
+								(reqtype == OP_RRQ)?"Read":"Write", requestedFile.toString(),
+								clientAddress.getHostName(), clientAddress.getPort());
 
 						if (reqtype == OP_RRQ) {      /* read request */
 							requestedFile.insert(0, READDIR);
@@ -72,7 +74,7 @@ public class TFTPServerAlexShit {
 				}
 			}.start();
 		}
-	}
+	} // start
 	/**
 	 * Reads the first block of data, i.e., the request for action (read or write).
 	 * @param socket socket to read from
@@ -82,7 +84,7 @@ public class TFTPServerAlexShit {
 
 	private InetSocketAddress receiveFrom(DatagramSocket socket, byte[] buf) {
 
-		receivePackage = new DatagramPacket(buf,buf.length);
+		DatagramPacket receivePackage = new DatagramPacket(buf,buf.length);
 		System.out.println("Receiving packet..");
 
 		try{
@@ -92,7 +94,7 @@ public class TFTPServerAlexShit {
 			System.exit(1);
 		}
 
-		data = receivePackage.getData();
+
 		System.out.println("Server: Packet received:");
 		System.out.println("From host: " + receivePackage.getAddress());
 		System.out.println("Host port: " + receivePackage.getPort());
@@ -113,32 +115,101 @@ public class TFTPServerAlexShit {
 	}
 
 	private void HandleRQ(DatagramSocket sendSocket, String string, int opRrq) {
+		String[] dong = string.split("\0");
+		File file = new File(dong[0]);
+		byte[] buffer = new byte[BUFSIZE-4];
 
-		byte[] dong = new byte[512];
-
-		String splittedString[] = string.split("\0");
 		if(opRrq == 1){
+			FileInputStream in = null;
 
 			try {
-				String path = splittedString[0];
-				byte[] file = path.getBytes();
+				in = new FileInputStream(file);
+				short blockNumber = 1;
+				while (true) {
+					int length = in.read(buffer);
+					System.out.println("Length: "+length);
 
-				file = ByteBuffer.allocate(1).putInt(3).array();
+					DatagramPacket packet = dataPacket(blockNumber,buffer,length);
 
-				DatagramPacket packet = new DatagramPacket(file,file.length);
-				sendSocket.send(packet);
-			} catch (NoSuchFileException e){
-				System.out.println("The requested file couldn't be found in :");
+					if (sendPacket(packet, blockNumber++, sendSocket)) {
+						System.out.println("Successfull send block" + blockNumber);
+					}else {
+						System.err.println("Error. Lost connection.");
+
+						return;
+					}
+					if (length < 512) {
+						try {
+							in.close();
+						} catch (IOException e) {
+							System.err.println("Trouble closing file.");
+							break;
+						}
+					}
+				}
+
+			}catch (FileNotFoundException e) {
+				e.getMessage();
+				System.out.println("The requested file couldn't be found under : "+string);
+				return;
 			} catch (IOException e) {
 				e.printStackTrace();
+				return;
 			}
-
 		}else if(opRrq == 2){
 
 		}
-
-
 	}
+
+	private DatagramPacket dataPacket(short block, byte[] data, int length) {
+
+		ByteBuffer buffer = ByteBuffer.allocate(BUFSIZE);
+		buffer.putShort((short)3);
+		buffer.putShort(block);
+		buffer.put(data, 0, length);
+
+		return new DatagramPacket(buffer.array(), 4+length);
+	}
+
+	private boolean sendPacket(DatagramPacket packet, short blockNumber, DatagramSocket socket ){
+		byte[] buffer = new byte[BUFSIZE];
+		DatagramPacket receivingPacket = new DatagramPacket(buffer, buffer.length);
+		short clientBlockNr=0;
+
+		try {
+			socket.send(packet);
+			socket.setSoTimeout(10000);
+			socket.receive(receivingPacket);
+			System.out.println("DINGDONG ALERT:"+new String(receivingPacket.getData()));
+
+			short ack = getAck(receivingPacket);
+			if (ack == blockNumber) {
+				return true;
+			} else if (ack == -1) {
+				return false;}
+
+
+
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.err.println("IO Error.");
+		}
+
+
+		return false;
+	}
+
+	private short getAck(DatagramPacket ack) {
+		ByteBuffer buffer = ByteBuffer.wrap(ack.getData());
+		short opcode = buffer.getShort();
+		if (opcode == OP_ERR) {
+			System.err.println("Client is dead. Closing connection.");
+
+			return -1;
+		}
+
+		return buffer.getShort();
+	} // getAck
 }
 
 
