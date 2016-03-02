@@ -1,12 +1,14 @@
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
-import java.nio.file.NoSuchFileException;
 
 public class TFTPServerAlexShit {
 	public static final int TFTPPORT = 4970;
 	public static final int BUFSIZE = 516;
-	public static final String READDIR = "/read/";
+	public static final String READDIR = "src/read/";
 	public static final String WRITEDIR = "/home/username/write/";
 	public static final int OP_RRQ = 1;
 	public static final int OP_WRQ = 2;
@@ -53,7 +55,7 @@ public class TFTPServerAlexShit {
 			public void run() {
 					try {
 						DatagramSocket sendSocket= new DatagramSocket(0);
-
+						sendSocket.connect(clientAddress);
 						System.out.printf("%s request for from %s using port %d\n",
 								(reqtype == OP_RRQ)?"Read":"Write",  clientAddress.getHostName(), clientAddress.getPort());
 
@@ -89,7 +91,6 @@ public class TFTPServerAlexShit {
 			socket.receive(receivePackage);
 		}catch (IOException e){
 			e.printStackTrace();
-			System.exit(1);
 		}
 
 		data = receivePackage.getData();
@@ -97,13 +98,13 @@ public class TFTPServerAlexShit {
 		System.out.println("From host: " + receivePackage.getAddress());
 		System.out.println("Host port: " + receivePackage.getPort());
 		System.out.println("Length: " + receivePackage.getLength());
-		buf= new byte[BUFSIZE];
 
 		return  new InetSocketAddress(receivePackage.getAddress(),receivePackage.getPort());
 	}
 
 	private int ParseRQ(byte[] buf, StringBuffer requestedFile) {
-		ByteBuffer wrap= ByteBuffer.wrap(buf);
+        System.out.println(requestedFile.toString());
+        ByteBuffer wrap= ByteBuffer.wrap(buf);
 		short opcode = wrap.getShort();
 		// We can now parse the request message for opcode and requested file as:
 		requestedFile.append(new String(buf, 2, buf.length-2)); // where readBytes is the number of bytes read into the byte array buf.
@@ -113,33 +114,80 @@ public class TFTPServerAlexShit {
 	}
 
 	private void HandleRQ(DatagramSocket sendSocket, String string, int opRrq) {
+		String[] dong = string.split("\0");
+		File file = new File(dong[0]);
+		byte[] buffer = new byte[BUFSIZE-4];
+		int length;
 
-		byte[] dong = new byte[512];
 
-		String splittedString[] = string.split("\0");
 		if(opRrq == 1){
-
+			FileInputStream in = null;
+			DatagramPacket packet;
 			try {
-				String path = splittedString[0];
-				byte[] file = path.getBytes();
+				in = new FileInputStream(file);
+				short blockNumber = 1;
+				while (true) {
+					length = in.read(buffer);
+					System.out.println("Length: "+length);
 
-				file = ByteBuffer.allocate(1).putInt(3).array();
+					packet = new DatagramPacket(buffer, blockNumber, length);
 
-				DatagramPacket packet = new DatagramPacket(file,file.length);
-				sendSocket.send(packet);
-			} catch (NoSuchFileException e){
-				System.out.println("The requested file couldn't be found in :");
+					if (sendPacket(packet, blockNumber++, sendSocket)) {
+						System.out.println("Successfull send block" + blockNumber);
+						return;
+					}
+					if (length < 512) {
+						try {
+							in.close();
+						} catch (IOException e) {
+							System.err.println("Trouble closing file.");
+							break;
+						}
+					}
+				}
+
+			}catch (FileNotFoundException e) {
+				e.getMessage();
+				System.out.println("The requested file couldn't be found under : "+string);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-
 		}else if(opRrq == 2){
 
 		}
+	}
 
+	private boolean sendPacket(DatagramPacket packet, short blockNumber, DatagramSocket socket ){
+		byte[] buffer = new byte[BUFSIZE];
+		DatagramPacket receivingPacket = new DatagramPacket(buffer, buffer.length);
+		short clientBlockNr=0;
 
+		try {
+			socket.send(packet);
+			socket.setSoTimeout(5000);
+			socket.receive(receivingPacket);
+
+			ByteBuffer byteBuffer = ByteBuffer.wrap(receivingPacket.getData());
+			System.out.println(new String(receivingPacket.getData()));
+			short opcode = byteBuffer.getShort();
+
+			if(opcode == OP_ERR){
+				System.out.println("Client is not reachable");
+			}else{
+				clientBlockNr = byteBuffer.getShort();
+			}
+
+			if(clientBlockNr == blockNumber){
+				System.out.println("Sent blocknumber equals ack-blocknumber");
+				return true;
+			}else{
+				return false;
+			}
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		return false;
 	}
 }
-
-
-
