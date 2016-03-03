@@ -1,7 +1,4 @@
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
 
@@ -9,14 +6,12 @@ public class TFTPServerAlexShit {
 	public static final int TFTPPORT = 4970;
 	public static final int BUFSIZE = 516;
 	public static final String READDIR = "src/read/";
-	public static final String WRITEDIR = "/home/username/write/";
+	public static final String WRITEDIR = "src/write/";
 	public static final int OP_RRQ = 1;
 	public static final int OP_WRQ = 2;
 	public static final int OP_DAT = 3;
 	public static final int OP_ACK = 4;
 	public static final int OP_ERR = 5;
-	DatagramPacket receivePackage;
-	byte[] data;
 
 	public static void main(String[] args) {
 		if (args.length > 0) {
@@ -43,21 +38,23 @@ public class TFTPServerAlexShit {
 		System.out.printf("Listening at port %d for new requests\n", TFTPPORT);
 
 		while(true) {        /* Loop to handle various requests */
-
-			final InetSocketAddress clientAddress= receiveFrom(socket, buf);
+			final InetSocketAddress clientAddress =
+					receiveFrom(socket, buf);
 			if (clientAddress == null) /* If clientAddress is null, an error occurred in receiveFrom()*/
 				continue;
 
-			final StringBuffer requestedFile= new StringBuffer();
+			final StringBuffer requestedFile = new StringBuffer();
 			final int reqtype = ParseRQ(buf, requestedFile);
 
 			new Thread() {
-			public void run() {
+				public void run() {
 					try {
-						DatagramSocket sendSocket= new DatagramSocket(0);
+						DatagramSocket sendSocket = new DatagramSocket(0);
 						sendSocket.connect(clientAddress);
-						System.out.printf("%s request for from %s using port %d\n",
-								(reqtype == OP_RRQ)?"Read":"Write",  clientAddress.getHostName(), clientAddress.getPort());
+
+						System.out.printf("%s request for %s from %s using port %d\n",
+								(reqtype == OP_RRQ)?"Read":"Write", requestedFile.toString(),
+								clientAddress.getHostName(), clientAddress.getPort());
 
 						if (reqtype == OP_RRQ) {      /* read request */
 							requestedFile.insert(0, READDIR);
@@ -74,7 +71,7 @@ public class TFTPServerAlexShit {
 				}
 			}.start();
 		}
-	}
+	} // start
 	/**
 	 * Reads the first block of data, i.e., the request for action (read or write).
 	 * @param socket socket to read from
@@ -84,27 +81,28 @@ public class TFTPServerAlexShit {
 
 	private InetSocketAddress receiveFrom(DatagramSocket socket, byte[] buf) {
 
-		receivePackage = new DatagramPacket(buf,buf.length);
+		DatagramPacket receivePackage = new DatagramPacket(buf,buf.length);
 		System.out.println("Receiving packet..");
 
 		try{
 			socket.receive(receivePackage);
 		}catch (IOException e){
 			e.printStackTrace();
+			System.exit(1);
 		}
 
-		data = receivePackage.getData();
+
 		System.out.println("Server: Packet received:");
 		System.out.println("From host: " + receivePackage.getAddress());
 		System.out.println("Host port: " + receivePackage.getPort());
 		System.out.println("Length: " + receivePackage.getLength());
+		buf= new byte[BUFSIZE];
 
 		return  new InetSocketAddress(receivePackage.getAddress(),receivePackage.getPort());
 	}
 
 	private int ParseRQ(byte[] buf, StringBuffer requestedFile) {
-        System.out.println(requestedFile.toString());
-        ByteBuffer wrap= ByteBuffer.wrap(buf);
+		ByteBuffer wrap= ByteBuffer.wrap(buf);
 		short opcode = wrap.getShort();
 		// We can now parse the request message for opcode and requested file as:
 		requestedFile.append(new String(buf, 2, buf.length-2)); // where readBytes is the number of bytes read into the byte array buf.
@@ -117,23 +115,24 @@ public class TFTPServerAlexShit {
 		String[] dong = string.split("\0");
 		File file = new File(dong[0]);
 		byte[] buffer = new byte[BUFSIZE-4];
-		int length;
-
 
 		if(opRrq == 1){
 			FileInputStream in = null;
-			DatagramPacket packet;
+
 			try {
 				in = new FileInputStream(file);
 				short blockNumber = 1;
 				while (true) {
-					length = in.read(buffer);
+					int length = in.read(buffer);
 					System.out.println("Length: "+length);
 
-					packet = new DatagramPacket(buffer, blockNumber, length);
+					DatagramPacket packet = dataPacket(blockNumber,buffer,length);
 
 					if (sendPacket(packet, blockNumber++, sendSocket)) {
 						System.out.println("Successfull send block" + blockNumber);
+					}else {
+						System.err.println("Error. Lost connection.");
+
 						return;
 					}
 					if (length < 512) {
@@ -149,12 +148,75 @@ public class TFTPServerAlexShit {
 			}catch (FileNotFoundException e) {
 				e.getMessage();
 				System.out.println("The requested file couldn't be found under : "+string);
+				return;
+			} catch (IOException e) {
+				e.printStackTrace();
+
+				return;
+			}
+		}else if(opRrq == 2){
+			byte[] receiverBuffer = new byte[BUFSIZE];
+			DatagramPacket receivingPacket = new DatagramPacket(buffer, buffer.length);
+			FileOutputStream fileOutputStream = null;
+			try {
+				if(file.exists()){
+					System.out.println("The file that should have been uploaded already exists");
+					sendSocket.send(errorPacket("The file that should have been uploaded already exists"));
+
+				}else{
+						fileOutputStream =new FileOutputStream(file);
+				}
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-		}else if(opRrq == 2){
+
+			short blockNum = 0;
+
+			while (true) {
+				ByteBuffer byteBuffer = ByteBuffer.allocate(BUFSIZE);
+				byteBuffer.putShort((short)OP_ACK);
+				byteBuffer.putShort(blockNum++);
+				DatagramPacket ackPacket = new DatagramPacket(byteBuffer.array(), 4);
+
+				DatagramPacket packet = receivePacket(sendSocket,ackPacket,blockNum);
+
+
+				System.out.println("Last element of received packed : "+(packet.getData()[packet.getData().length-1]));
+				if(packet.getData()[packet.getData().length-1]==0){
+                    try {
+                        fileOutputStream.close();
+						break;
+                    } catch (IOException e) {
+                        System.err.println("Trouble closing file.");
+                        break;
+                    }
+                }
+
+
+			}
+
 
 		}
+	}
+
+	private DatagramPacket errorPacket(String errorMessage){
+		ByteBuffer buffer = ByteBuffer.allocate(BUFSIZE);
+		buffer.putShort((short)5);	//ERROR OPCODE
+		buffer.putShort((short)6);	//ERROR MESSAGE FOR FILE ALREADY EXISTS
+		buffer.put(errorMessage.getBytes());
+		buffer.putInt(0);			//YOU JUST NEED THAT 0 in the end
+		return new DatagramPacket(buffer.array(),BUFSIZE);
+	}
+
+
+	private DatagramPacket dataPacket(short block, byte[] data, int length) {
+
+		ByteBuffer buffer = ByteBuffer.allocate(BUFSIZE);
+		buffer.putShort((short)3);
+		buffer.putShort(block);
+		buffer.put(data, 0, length);
+
+		return new DatagramPacket(buffer.array(), 4+length);
 	}
 
 	private boolean sendPacket(DatagramPacket packet, short blockNumber, DatagramSocket socket ){
@@ -164,30 +226,39 @@ public class TFTPServerAlexShit {
 
 		try {
 			socket.send(packet);
-			socket.setSoTimeout(5000);
+			socket.setSoTimeout(10000);
 			socket.receive(receivingPacket);
 
 			ByteBuffer byteBuffer = ByteBuffer.wrap(receivingPacket.getData());
-			System.out.println(new String(receivingPacket.getData()));
 			short opcode = byteBuffer.getShort();
+			if (opcode == OP_ERR) {
+				System.err.println("Client is dead. Closing connection.");
+				socket.close();
+				System.exit(1);
 
-			if(opcode == OP_ERR){
-				System.out.println("Client is not reachable");
-			}else{
-				clientBlockNr = byteBuffer.getShort();
-			}
-
-			if(clientBlockNr == blockNumber){
-				System.out.println("Sent blocknumber equals ack-blocknumber");
+			}else if (opcode == blockNumber) {
 				return true;
-			}else{
-				return false;
-			}
+			} else if (opcode == -1) {
+				return false;}
+
+
 
 		} catch (IOException e) {
 			e.printStackTrace();
+			System.err.println("IO Error.");
 		}
+
 
 		return false;
 	}
+
+	private DatagramPacket receivePacket(DatagramSocket sendSocket, DatagramPacket sendAck, short block){
+
+
+		return null;
+	}
+
 }
+
+
+
