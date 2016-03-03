@@ -91,14 +91,6 @@ public class TFTPServerAlexShit {
 			e.printStackTrace();
 			System.exit(1);
 		}
-
-
-		System.out.println("Server: Packet received:");
-		System.out.println("From host: " + receivePackage.getAddress());
-		System.out.println("Host port: " + receivePackage.getPort());
-		System.out.println("Length: " + receivePackage.getLength());
-		buf= new byte[BUFSIZE];
-
 		return  new InetSocketAddress(receivePackage.getAddress(),receivePackage.getPort());
 	}
 
@@ -213,7 +205,7 @@ public class TFTPServerAlexShit {
 	private DatagramPacket dataPacket(short block, byte[] data, int length) {
 
 		ByteBuffer buffer = ByteBuffer.allocate(BUFSIZE);
-		buffer.putShort((short)3);
+		buffer.putShort((short)OP_DAT);
 		buffer.putShort(block);
 		buffer.put(data, 0, length);
 
