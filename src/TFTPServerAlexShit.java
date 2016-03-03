@@ -181,9 +181,11 @@ public class TFTPServerAlexShit {
 				DatagramPacket packet = receivePacket(sendSocket,ackPacket,blockNum);
 
 
-				if(receivingPacket.getData()[receivingPacket.getData().length-1]==0){
+				System.out.println("Last element of received packed : "+(packet.getData()[packet.getData().length-1]));
+				if(packet.getData()[packet.getData().length-1]==0){
                     try {
                         fileOutputStream.close();
+						break;
                     } catch (IOException e) {
                         System.err.println("Trouble closing file.");
                         break;

@@ -39,11 +39,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="TFTPServerAlexShit.java" pinned="false" current-in-tab="false">
+      <file leaf-file-name="TFTPServerAlexShit.java" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/TFTPServerAlexShit.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.0">
-              <caret line="179" column="0" selection-start-line="175" selection-start-column="12" selection-end-line="179" selection-end-column="0" />
+            <state vertical-scroll-proportion="0.30569106">
+              <caret line="180" column="85" selection-start-line="180" selection-start-column="85" selection-end-line="180" selection-end-column="85" />
               <folding>
                 <element signature="imports" expanded="true" />
               </folding>
@@ -51,10 +51,10 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="crazyShit.java" pinned="false" current-in-tab="true">
+      <file leaf-file-name="crazyShit.java" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/crazyShit.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="3.7560976">
+            <state vertical-scroll-proportion="0.0">
               <caret line="386" column="24" selection-start-line="364" selection-start-column="3" selection-end-line="386" selection-end-column="24" />
               <folding>
                 <element signature="imports" expanded="true" />
@@ -692,7 +692,7 @@
       <updated>1456834529507</updated>
       <workItem from="1456834532874" duration="5157000" />
       <workItem from="1456913601557" duration="17997000" />
-      <workItem from="1456998582543" duration="2763000" />
+      <workItem from="1456998582543" duration="3022000" />
     </task>
     <task id="LOCAL-00001" summary="updatez">
       <created>1456919059960</created>
@@ -712,11 +712,17 @@
       <option name="project" value="LOCAL" />
       <updated>1456932728631</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="started with receiving shit">
+      <created>1457001360370</created>
+      <option name="number" value="00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1457001360370</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="25917000" />
+    <option name="totallyTimeSpent" value="26176000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="25" width="1920" height="1055" extended-state="6" />
@@ -764,7 +770,8 @@
     <MESSAGE value="j" />
     <MESSAGE value="updatez" />
     <MESSAGE value="played around in alex shit" />
-    <option name="LAST_COMMIT_MESSAGE" value="played around in alex shit" />
+    <MESSAGE value="started with receiving shit" />
+    <option name="LAST_COMMIT_MESSAGE" value="started with receiving shit" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -777,7 +784,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="java-line">
           <url>file://$PROJECT_DIR$/src/TFTPServerAlexShit.java</url>
-          <line>246</line>
+          <line>248</line>
           <properties />
           <option name="timeStamp" value="37" />
         </line-breakpoint>
@@ -875,20 +882,20 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/TFTPServerAlexShit.java">
+    <entry file="file://$PROJECT_DIR$/src/crazyShit.java">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0">
-          <caret line="179" column="0" selection-start-line="175" selection-start-column="12" selection-end-line="179" selection-end-column="0" />
+          <caret line="386" column="24" selection-start-line="364" selection-start-column="3" selection-end-line="386" selection-end-column="24" />
           <folding>
             <element signature="imports" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/crazyShit.java">
+    <entry file="file://$PROJECT_DIR$/src/TFTPServerAlexShit.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="3.7560976">
-          <caret line="386" column="24" selection-start-line="364" selection-start-column="3" selection-end-line="386" selection-end-column="24" />
+        <state vertical-scroll-proportion="0.30569106">
+          <caret line="180" column="85" selection-start-line="180" selection-start-column="85" selection-end-line="180" selection-end-column="85" />
           <folding>
             <element signature="imports" expanded="true" />
           </folding>
