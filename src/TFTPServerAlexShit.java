@@ -1,7 +1,4 @@
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
 
@@ -9,7 +6,7 @@ public class TFTPServerAlexShit {
 	public static final int TFTPPORT = 4970;
 	public static final int BUFSIZE = 516;
 	public static final String READDIR = "src/read/";
-	public static final String WRITEDIR = "/home/username/write/";
+	public static final String WRITEDIR = "src/write/";
 	public static final int OP_RRQ = 1;
 	public static final int OP_WRQ = 2;
 	public static final int OP_DAT = 3;
@@ -154,12 +151,61 @@ public class TFTPServerAlexShit {
 				return;
 			} catch (IOException e) {
 				e.printStackTrace();
+
 				return;
 			}
 		}else if(opRrq == 2){
+			byte[] receiverBuffer = new byte[BUFSIZE];
+			DatagramPacket receivingPacket = new DatagramPacket(buffer, buffer.length);
+			FileOutputStream fileOutputStream = null;
+			try {
+				if(file.exists()){
+					System.out.println("The file that should have been uploaded already exists");
+					sendSocket.send(errorPacket("The file that should have been uploaded already exists"));
+
+				}else{
+						fileOutputStream =new FileOutputStream(file);
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+			short blockNum = 0;
+
+			while (true) {
+				ByteBuffer byteBuffer = ByteBuffer.allocate(BUFSIZE);
+				byteBuffer.putShort((short)OP_ACK);
+				byteBuffer.putShort(blockNum++);
+				DatagramPacket ackPacket = new DatagramPacket(byteBuffer.array(), 4);
+
+				DatagramPacket packet = receivePacket(sendSocket,ackPacket,blockNum);
+
+
+				if(receivingPacket.getData()[receivingPacket.getData().length-1]==0){
+                    try {
+                        fileOutputStream.close();
+                    } catch (IOException e) {
+                        System.err.println("Trouble closing file.");
+                        break;
+                    }
+                }
+
+
+			}
+
 
 		}
 	}
+
+	private DatagramPacket errorPacket(String errorMessage){
+		ByteBuffer buffer = ByteBuffer.allocate(BUFSIZE);
+		buffer.putShort((short)5);	//ERROR OPCODE
+		buffer.putShort((short)6);	//ERROR MESSAGE FOR FILE ALREADY EXISTS
+		buffer.put(errorMessage.getBytes());
+		buffer.putInt(0);			//YOU JUST NEED THAT 0 in the end
+		return new DatagramPacket(buffer.array(),BUFSIZE);
+	}
+
 
 	private DatagramPacket dataPacket(short block, byte[] data, int length) {
 
@@ -180,12 +226,17 @@ public class TFTPServerAlexShit {
 			socket.send(packet);
 			socket.setSoTimeout(10000);
 			socket.receive(receivingPacket);
-			System.out.println("DINGDONG ALERT:"+new String(receivingPacket.getData()));
 
-			short ack = getAck(receivingPacket);
-			if (ack == blockNumber) {
+			ByteBuffer byteBuffer = ByteBuffer.wrap(receivingPacket.getData());
+			short opcode = byteBuffer.getShort();
+			if (opcode == OP_ERR) {
+				System.err.println("Client is dead. Closing connection.");
+				socket.close();
+				System.exit(1);
+
+			}else if (opcode == blockNumber) {
 				return true;
-			} else if (ack == -1) {
+			} else if (opcode == -1) {
 				return false;}
 
 
@@ -199,17 +250,12 @@ public class TFTPServerAlexShit {
 		return false;
 	}
 
-	private short getAck(DatagramPacket ack) {
-		ByteBuffer buffer = ByteBuffer.wrap(ack.getData());
-		short opcode = buffer.getShort();
-		if (opcode == OP_ERR) {
-			System.err.println("Client is dead. Closing connection.");
+	private DatagramPacket receivePacket(DatagramSocket sendSocket, DatagramPacket sendAck, short block){
 
-			return -1;
-		}
 
-		return buffer.getShort();
-	} // getAck
+		return null;
+	}
+
 }
 
 
