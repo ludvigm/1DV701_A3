@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class TFTPServerAlexShit {
 	public static final int TFTPPORT = 4970;
@@ -105,7 +106,7 @@ public class TFTPServerAlexShit {
 		ByteBuffer wrap= ByteBuffer.wrap(buf);
 		short opcode = wrap.getShort();
 		// We can now parse the request message for opcode and requested file as:
-		requestedFile.append(new String(buf, 2, buf.length-2)); // where readBytes is the number of bytes read into the byte array buf.
+		requestedFile.append(new String(buf, 2, buf.length - 2)); // where readBytes is the number of bytes read into the byte array buf.
 
 		System.out.println("OPCODE " +opcode);
 		return opcode;
@@ -173,29 +174,29 @@ public class TFTPServerAlexShit {
 			short blockNum = 0;
 
 			while (true) {
-				ByteBuffer byteBuffer = ByteBuffer.allocate(BUFSIZE);
-				byteBuffer.putShort((short)OP_ACK);
-				byteBuffer.putShort(blockNum++);
-				DatagramPacket ackPacket = new DatagramPacket(byteBuffer.array(), 4);
+				DatagramPacket ackPacket = ackPacket(blockNum++);
 
-				DatagramPacket packet = receivePacket(sendSocket,ackPacket,blockNum);
-
-
-				System.out.println("Last element of received packed : "+(packet.getData()[packet.getData().length-1]));
-				if(packet.getData()[packet.getData().length-1]==0){
+                DatagramPacket packet = receivePacket(sendSocket,ackPacket,blockNum);
+                try {
+                    fileOutputStream.write(packet.getData(),4,packet.getData().length-4);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                if(packet.getLength()-4<512) {
+                    try {
+                        sendSocket.send(ackPacket(blockNum));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                     try {
                         fileOutputStream.close();
-						break;
-                    } catch (IOException e) {
-                        System.err.println("Trouble closing file.");
                         break;
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
                 }
-
-
 			}
-
-
+            return;
 		}
 	}
 
@@ -218,7 +219,45 @@ public class TFTPServerAlexShit {
 
 		return new DatagramPacket(buffer.array(), 4+length);
 	}
+    private DatagramPacket ackPacket(short block) {
 
+        ByteBuffer buffer = ByteBuffer.allocate(BUFSIZE);
+        buffer.putShort((short)OP_ACK);
+        buffer.putShort(block);
+
+        return new DatagramPacket(buffer.array(), 4);
+    } // ackPacket
+
+    private DatagramPacket receivePacket(DatagramSocket sendSocket, DatagramPacket sendAck, short block){
+        byte[] buffer = new byte[BUFSIZE];
+        DatagramPacket receivingPacket = new DatagramPacket(buffer, buffer.length);
+
+        try {
+            sendSocket.send(sendAck);
+            sendSocket.setSoTimeout(2000);
+            sendSocket.receive(receivingPacket);
+
+            //Get what opcode receiving packet had
+            ByteBuffer buf = ByteBuffer.wrap(receivingPacket.getData());
+            short opcode = buf.getShort();
+            if(opcode == (short) OP_ERR) {
+                System.out.println("Received OP_ERR opcode. Quitting");
+                System.exit(1);
+            } else {
+                short receivedBlock = buf.getShort();
+                if(receivedBlock == block) {
+                    return receivingPacket;
+                } else {
+                    System.out.println("Blocknumbers not matching.");
+                }
+            }
+
+        } catch(IOException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
 	private boolean sendPacket(DatagramPacket packet, short blockNumber, DatagramSocket socket ){
 		byte[] buffer = new byte[BUFSIZE];
 		DatagramPacket receivingPacket = new DatagramPacket(buffer, buffer.length);
@@ -252,11 +291,7 @@ public class TFTPServerAlexShit {
 		return false;
 	}
 
-	private DatagramPacket receivePacket(DatagramSocket sendSocket, DatagramPacket sendAck, short block){
 
-
-		return null;
-	}
 
 }
 
