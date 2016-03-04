@@ -129,18 +129,23 @@ public class TFTPServerAlexShit {
 					int length = in.read(buffer);
 					System.out.println("Length: "+length);
 
-					DatagramPacket packet = dataPacket(blockNumber,buffer,length);
+                    if(length==-1) {
+                        length = 0;
+                    }
+                        DatagramPacket packet = dataPacket(blockNumber, buffer, length);
 
-					if (sendPacket(packet, blockNumber++, sendSocket)) {
-						System.out.println("Successfull send block" + blockNumber);
-					}else {
-						System.err.println("Error. Lost connection.");
+                        if (sendPacket(sendSocket, packet, blockNumber++)) {
+                            System.out.println("Successfull send block" + blockNumber);
+                        } else {
+                            System.err.println("Error. Lost connection.");
 
-						return;
-					}
+                            return;
+                        }
+
 					if (length < 512) {
 						try {
 							in.close();
+                            break;
 						} catch (IOException e) {
 							System.err.println("Trouble closing file.");
 							break;
@@ -156,6 +161,7 @@ public class TFTPServerAlexShit {
                 tftpErrorHandler.sendError(2);              //Sends "Access violation" after checking for file doesnt exist error.
 				return;
 			}
+            return;
 		}else if(opRrq == 2){
 			byte[] receiverBuffer = new byte[BUFSIZE];
 			DatagramPacket receivingPacket = new DatagramPacket(buffer, buffer.length);
@@ -250,29 +256,25 @@ public class TFTPServerAlexShit {
         }
         return null;
     }
-	private boolean sendPacket(DatagramPacket packet, short blockNumber, DatagramSocket socket ){
+	private boolean sendPacket(DatagramSocket socket, DatagramPacket packet, short blockNumber){
 		byte[] buffer = new byte[BUFSIZE];
 		DatagramPacket receivingPacket = new DatagramPacket(buffer, buffer.length);
 
 
 		try {
 			socket.send(packet);
-			socket.setSoTimeout(10000);
+			socket.setSoTimeout(1000);
 			socket.receive(receivingPacket);
 
 			ByteBuffer byteBuffer = ByteBuffer.wrap(receivingPacket.getData());
 			short opcode = byteBuffer.getShort();
+            short receivedBlocknr = byteBuffer.getShort();
 			if (opcode == OP_ERR) {
 				tftpErrorHandler.sendError(0);
-				socket.close();
-
-			}else if (opcode == blockNumber) {
+			}else if (receivedBlocknr == blockNumber) {
 				return true;
-			} else if (opcode == -1) {
+			} else if (receivedBlocknr == -1) {
 				return false;}
-
-
-
 		} catch (IOException e) {
 			e.printStackTrace();
 			System.err.println("IO Error.");
