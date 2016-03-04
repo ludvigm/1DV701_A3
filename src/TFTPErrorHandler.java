@@ -24,20 +24,20 @@ public class TFTPErrorHandler {
         this.sendSocket = sendSocket;
     }
 
-    public void sendError(short errorCode) {
+    public void sendError(int errorCode) {
         ByteBuffer buffer = ByteBuffer.allocate(BUFSIZE);
         buffer.putShort((OP_ERR));	//ERROR OPCODE
-        buffer.putShort(errorCode);
+        buffer.putShort((short)errorCode);
 
         String errorMessage = errcodes[errorCode];
 
         buffer.put(errorMessage.getBytes());
 
-
-        buffer.putInt(0);			//YOU JUST NEED THAT 0 in the end
+        buffer.put(zeroByte);			//end with a 0
         DatagramPacket errorPacket = new DatagramPacket(buffer.array(),BUFSIZE);
         try {
             sendSocket.send(errorPacket);
+            System.out.println("Responded to client with error: " + errorCode + " - " + errorMessage);
         } catch (IOException e) {
             e.printStackTrace();
         }
