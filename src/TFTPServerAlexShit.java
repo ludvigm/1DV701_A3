@@ -128,7 +128,6 @@ public class TFTPServerAlexShit {
 				while (true) {
 					int length = in.read(buffer);
 					System.out.println("Length: "+length);
-
                     if(length==-1) {
                         length = 0;
                     }
@@ -138,7 +137,6 @@ public class TFTPServerAlexShit {
                             System.out.println("Successfull send block" + blockNumber);
                         } else {
                             System.err.println("Error. Lost connection.");
-
                             return;
                         }
 
@@ -175,6 +173,7 @@ public class TFTPServerAlexShit {
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
+                tftpErrorHandler.sendError(7);              //Sends "No such user" after checking for file already exists error.
 			}
 
 			short blockNum = 0;
@@ -195,6 +194,7 @@ public class TFTPServerAlexShit {
                 try {
                     fileOutputStream.write(packet.getData(), 4, packet.getData().length - 4);
                 } catch (IOException e) {
+
                     e.printStackTrace();
                 }
                 if (packet.getLength() - 4 < 512) {
@@ -262,9 +262,6 @@ public class TFTPServerAlexShit {
             e.printStackTrace();
         }
 			retry++;
-        return null;
-
-
 		}
     }
 	private boolean sendPacket(DatagramSocket socket, DatagramPacket packet, short blockNumber) {
