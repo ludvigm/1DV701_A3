@@ -232,11 +232,18 @@ public class TFTPServerAlexShit {
     private DatagramPacket receivePacket(DatagramSocket sendSocket, DatagramPacket sendAck, short block){
         byte[] buffer = new byte[BUFSIZE];
         DatagramPacket receivingPacket = new DatagramPacket(buffer, buffer.length);
+		int retry=1;
 
-        try {
-            sendSocket.send(sendAck);
-            sendSocket.setSoTimeout(2000);
-            sendSocket.receive(receivingPacket);
+		while(true){
+
+			if(retry > 5){
+				System.err.println("The client is not responding");
+				return null;
+			}
+			try {
+				sendSocket.send(sendAck);
+				sendSocket.setSoTimeout(2000);
+				sendSocket.receive(receivingPacket);
 
             //Get what opcode receiving packet had
             ByteBuffer buf = ByteBuffer.wrap(receivingPacket.getData());
@@ -254,37 +261,48 @@ public class TFTPServerAlexShit {
         } catch(IOException e) {
             e.printStackTrace();
         }
+			retry++;
         return null;
+
+
+		}
     }
-	private boolean sendPacket(DatagramSocket socket, DatagramPacket packet, short blockNumber){
+	private boolean sendPacket(DatagramSocket socket, DatagramPacket packet, short blockNumber) {
 		byte[] buffer = new byte[BUFSIZE];
 		DatagramPacket receivingPacket = new DatagramPacket(buffer, buffer.length);
+		int retry = 1;
 
 
-		try {
-			socket.send(packet);
-			socket.setSoTimeout(1000);
-			socket.receive(receivingPacket);
+		while (true) {
+			if (retry > 5) {
+				System.err.println("The client is not responding");
+				return false;
+			}
+			try {
+				socket.send(packet);
+				socket.setSoTimeout(10000);
+				socket.receive(receivingPacket);
 
-			ByteBuffer byteBuffer = ByteBuffer.wrap(receivingPacket.getData());
-			short opcode = byteBuffer.getShort();
-            short receivedBlocknr = byteBuffer.getShort();
-			if (opcode == OP_ERR) {
-				tftpErrorHandler.sendError(0);
-			}else if (receivedBlocknr == blockNumber) {
-				return true;
-			} else if (receivedBlocknr == -1) {
-				return false;}
-		} catch (IOException e) {
-			e.printStackTrace();
-			System.err.println("IO Error.");
+				ByteBuffer byteBuffer = ByteBuffer.wrap(receivingPacket.getData());
+				short opcode = byteBuffer.getShort();
+				short receivedBlocknr = byteBuffer.getShort();
+				if (opcode == OP_ERR) {
+					tftpErrorHandler.sendError(0);
+				} else if (receivedBlocknr == blockNumber) {
+					return true;
+				} else if (receivedBlocknr == -1) {
+					return false;
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+				System.err.println("IO Error.");
+			}
+
+
+			return false;
 		}
 
-
-		return false;
 	}
-
-
 
 }
 

@@ -1,16 +1,7 @@
-
-        import java.io.File;
-        import java.io.FileInputStream;
-        import java.io.FileNotFoundException;
-        import java.io.FileOutputStream;
-        import java.io.IOException;
-        import java.net.DatagramPacket;
-        import java.net.DatagramSocket;
-        import java.net.InetSocketAddress;
-        import java.net.SocketAddress;
-        import java.net.SocketException;
-        import java.net.SocketTimeoutException;
-        import java.nio.ByteBuffer;
+import java.io.*;
+import java.net.*;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 
 /**
  * TFTPServer
@@ -39,6 +30,7 @@ public class crazyShit {
     public static final short ERR_ACCESS = 2;
     public static final short ERR_EXISTS = 6;
     public static String 	  mode;
+    static boolean transmissionDone = true;
 
     public static final String[] errorCodes = {"Not defined", "File not found.", "Access violation.",
             "Disk full or allocation exceeded.", "Illegal TFTP operation.",
@@ -60,6 +52,8 @@ public class crazyShit {
 
     private void start() throws SocketException {
         byte[] buf= new byte[BUFSIZE];
+        ArrayList<InetSocketAddress> requestList = new ArrayList<InetSocketAddress>();
+
 
 		/* Create socket */
         DatagramSocket socket= new DatagramSocket(null);
@@ -71,38 +65,42 @@ public class crazyShit {
         System.out.printf("Listening at port %d for new requests\n", TFTPPORT);
 
         while(true) {        /* Loop to handle various requests */
-            final InetSocketAddress clientAddress =
-                    receiveFrom(socket, buf);
+            final InetSocketAddress clientAddress = receiveFrom(socket, buf);
             if (clientAddress == null) /* If clientAddress is null, an error occurred in receiveFrom()*/
                 continue;
 
+            requestList.add(clientAddress);
             final StringBuffer requestedFile = new StringBuffer();
             final int reqtype = ParseRQ(buf, requestedFile);
 
-            new Thread() {
-                public void run() {
-                    try {
-                        DatagramSocket sendSocket = new DatagramSocket(0);
-                        sendSocket.connect(clientAddress);
+            if(transmissionDone) {
+                new Thread() {
+                    public void run() {
+                        transmissionDone = false;
+                        try {
+                            DatagramSocket sendSocket = new DatagramSocket(0);
+                            sendSocket.connect(requestList.get(0));
 
-                        System.out.printf("%s request for %s from %s using port %d\n",
-                                (reqtype == OP_RRQ)?"Read":"Write", requestedFile.toString(),
-                                clientAddress.getHostName(), clientAddress.getPort());
+                            System.out.printf("%s request for %s from %s using port %d\n",
+                                    (reqtype == OP_RRQ) ? "Read" : "Write", requestedFile.toString(),
+                                    requestList.get(0).getHostName(), requestList.get(0).getPort());
 
-                        if (reqtype == OP_RRQ) {      /* read request */
-                            requestedFile.insert(0, READDIR);
-                            HandleRQ(sendSocket, requestedFile.toString(), OP_RRQ);
+                            if (reqtype == OP_RRQ) {      /* read request */
+                                requestedFile.insert(0, READDIR);
+                                HandleRQ(sendSocket, requestedFile.toString(), OP_RRQ);
+                            } else {                       /* write request */
+                                requestedFile.insert(0, WRITEDIR);
+                                HandleRQ(sendSocket, requestedFile.toString(), OP_WRQ);
+                            }
+                            requestList.remove(0);
+                            sendSocket.close();
+                            transmissionDone = true;
+                        } catch (SocketException e) {
+                            e.printStackTrace();
                         }
-                        else {                       /* write request */
-                            requestedFile.insert(0, WRITEDIR);
-                            HandleRQ(sendSocket,requestedFile.toString(),OP_WRQ);
-                        }
-                        sendSocket.close();
-                    } catch (SocketException e) {
-                        e.printStackTrace();
                     }
-                }
-            }.start();
+                }.start();
+            }
         }
     } // start
 
@@ -123,10 +121,7 @@ public class crazyShit {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-        InetSocketAddress client = new InetSocketAddress(receivePacket.getAddress(),receivePacket.getPort());
-
-        return client;
+        return new InetSocketAddress(receivePacket.getAddress(),receivePacket.getPort());
     } // receiveFrom
 
     /**

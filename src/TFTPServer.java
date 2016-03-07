@@ -1,3 +1,4 @@
+/*
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -34,19 +35,27 @@ public class TFTPServer {
     private void start() throws SocketException {
         byte[] buf= new byte[BUFSIZE];
 		
-		/* Create socket */
+		*/
+/* Create socket *//*
+
         DatagramSocket socket= new DatagramSocket(null);
 		
-		/* Create local bind point */
+		*/
+/* Create local bind point *//*
+
         SocketAddress localBindPoint= new InetSocketAddress(TFTPPORT);
         socket.bind(localBindPoint);
 
         System.out.printf("Listening at port %d for new requests\n", TFTPPORT);
 
-        while(true) {        /* Loop to handle various requests */
+        while(true) {        */
+/* Loop to handle various requests *//*
+
             final InetSocketAddress clientAddress=
                     receiveFrom(socket, buf);
-            if (clientAddress == null) /* If clientAddress is null, an error occurred in receiveFrom()*/
+            if (clientAddress == null) */
+/* If clientAddress is null, an error occurred in receiveFrom()*//*
+
                 continue;
 
             final StringBuffer requestedFile= new StringBuffer();
@@ -62,11 +71,15 @@ public class TFTPServer {
                                 (reqtype == OP_RRQ)?"Read":"Write", requestedFile.toString(),
                                 clientAddress.getHostName(), clientAddress.getPort());
 
-                        if (reqtype == OP_RRQ) {      /* read request */
+                        if (reqtype == OP_RRQ) {      */
+/* read request *//*
+
                             requestedFile.insert(0, READDIR);
                             HandleRQ(sendSocket, requestedFile.toString(), OP_RRQ);
                         }
-                        else {                       /* write request */
+                        else {                       */
+/* write request *//*
+
                             requestedFile.insert(0, WRITEDIR);
                             HandleRQ(sendSocket,requestedFile.toString(),OP_WRQ);
                         }
@@ -78,12 +91,14 @@ public class TFTPServer {
             }.start();
         }
     }
-    /**
+    */
+/**
      * Reads the first block of data, i.e., the request for action (read or write).
      * @param socket socket to read from
      * @param buf where to store the read data
      * @return the Internet socket address of the client
-     */
+     *//*
+
 
     private InetSocketAddress receiveFrom(DatagramSocket socket, byte[] buf) {
 
@@ -180,3 +195,4 @@ public class TFTPServer {
 
 
 
+*/
