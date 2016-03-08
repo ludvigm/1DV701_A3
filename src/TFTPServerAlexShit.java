@@ -266,12 +266,6 @@ public class TFTPServerAlexShit {
                     tftpErrorHandler.sendError(5);
                     return null;
                 }
-                /*
-                              System.out.println("sending ack on: " + sendAck.getPort());      //Should send to remote port
-                System.out.println("receiving on: " + receivingPacket.getPort());
-
-                System.out.println("local: " + this.localPort);
-                System.out.println("remote: " + this.remotePort);*/
 
             //Get what opcode receiving packet had
             ByteBuffer buf = ByteBuffer.wrap(receivingPacket.getData());
