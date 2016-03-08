@@ -1,3 +1,4 @@
+import javax.xml.bind.SchemaOutputResolver;
 import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
@@ -16,6 +17,9 @@ public class TFTPServerAlexShit {
 	public static final int OP_ERR = 5;
 
     private TFTPErrorHandler tftpErrorHandler;
+    private int remotePort;
+    private int localPort;
+
 	public static void main(String[] args) {
 		if (args.length > 0) {
 			System.err.printf("usage: java %s\n", TFTPServerAlexShit.class.getCanonicalName());
@@ -56,19 +60,23 @@ public class TFTPServerAlexShit {
 						DatagramSocket sendSocket = new DatagramSocket(0);
 						sendSocket.connect(clientAddress);
                         tftpErrorHandler = new TFTPErrorHandler(sendSocket);
+                        setPorts(sendSocket);
+
 
 						System.out.printf("%s request for %s from %s using port %d\n",
-								(reqtype == OP_RRQ)?"Read":"Write", requestedFile.toString(),
-								clientAddress.getHostName(), clientAddress.getPort());
+                                (reqtype == OP_RRQ) ? "Read" : "Write", requestedFile.toString(),
+                                clientAddress.getHostName(), clientAddress.getPort());
 
 						if (reqtype == OP_RRQ) {      /* read request */
 							requestedFile.insert(0, READDIR);
 							HandleRQ(sendSocket, requestedFile.toString(), OP_RRQ);
 						}
-						else {                       /* write request */
+						else if(reqtype == OP_WRQ){                       /* write request */
 							requestedFile.insert(0, WRITEDIR);
 							HandleRQ(sendSocket,requestedFile.toString(),OP_WRQ);
-						}
+						} else {
+                            tftpErrorHandler.sendError(4);      //if the initial request is not read or write..
+                        }
 						sendSocket.close();
 					} catch (SocketException e) {
 						e.printStackTrace();
@@ -113,6 +121,14 @@ public class TFTPServerAlexShit {
 
 		File file = new File(splitRequest[0]);
         String mode = splitRequest[1];
+        if(opRrq == OP_WRQ) {
+            File diskSpaceFile = new File(WRITEDIR);
+            if (!checkFileSpace(splitRequest[3], diskSpaceFile.getFreeSpace())) {          //Checks free diskspace and checks if the file we are requested to receive can fit in our system.
+                tftpErrorHandler.sendError(3);
+                return;
+            }
+        }
+
         if(!mode.equals("octet")) {
             tftpErrorHandler.sendError(4);
             return;
@@ -157,7 +173,7 @@ public class TFTPServerAlexShit {
 			} catch (IOException e) {
 				e.printStackTrace();
                 tftpErrorHandler.sendError(2);              //Sends "Access violation" after checking for file doesnt exist error.
-				return;
+                return;
 			}
             return;
 		}else if(opRrq == 2){
@@ -214,7 +230,7 @@ public class TFTPServerAlexShit {
 	private DatagramPacket dataPacket(short block, byte[] data, int length) {
 
 		ByteBuffer buffer = ByteBuffer.allocate(BUFSIZE);
-		buffer.putShort((short)OP_DAT);
+		buffer.putShort((short) OP_DAT);
 		buffer.putShort(block);
 		buffer.put(data, 0, length);
 
@@ -235,15 +251,27 @@ public class TFTPServerAlexShit {
 		int retry=1;
 
 		while(true){
-
-			if(retry > 5){
+			if(retry > 10){
 				System.err.println("The client is not responding");
 				return null;
 			}
 			try {
-				sendSocket.send(sendAck);
-				sendSocket.setSoTimeout(2000);
+                if(retry<=1) {
+                    sendSocket.send(sendAck);
+                }
+                sendSocket.setSoTimeout(2000);
 				sendSocket.receive(receivingPacket);
+
+                if(!checkReceivingpacket(receivingPacket)) {        //Received ack on a port that was not the remoteport.
+                    tftpErrorHandler.sendError(5);
+                    return null;
+                }
+                /*
+                              System.out.println("sending ack on: " + sendAck.getPort());      //Should send to remote port
+                System.out.println("receiving on: " + receivingPacket.getPort());
+
+                System.out.println("local: " + this.localPort);
+                System.out.println("remote: " + this.remotePort);*/
 
             //Get what opcode receiving packet had
             ByteBuffer buf = ByteBuffer.wrap(receivingPacket.getData());
@@ -271,14 +299,26 @@ public class TFTPServerAlexShit {
 
 
 		while (true) {
-			if (retry > 5) {
+			if (retry > 10) {
 				System.err.println("The client is not responding");
 				return false;
 			}
 			try {
-				socket.send(packet);
-				socket.setSoTimeout(10000);
-				socket.receive(receivingPacket);
+                if(retry<=1) {
+                    socket.send(packet);
+                }
+                //System.out.println("sending on: " + packet.getPort());
+                socket.setSoTimeout(10000);
+				socket.receive(receivingPacket);    //Receive ack
+
+                if(!checkReceivingpacket(receivingPacket)) {        //Received ack on a port that was not the remoteport.
+                    tftpErrorHandler.sendError(5);
+                    return false;
+                }
+
+             /*   System.out.println("receving on " + receivingPacket.getPort());      //should receive to local port?
+                System.out.println("locl" + this.localPort);
+                System.out.println("remote " + this.remotePort);*/
 
 				ByteBuffer byteBuffer = ByteBuffer.wrap(receivingPacket.getData());
 				short opcode = byteBuffer.getShort();
@@ -300,6 +340,26 @@ public class TFTPServerAlexShit {
 		}
 
 	}
+
+    private void setPorts(DatagramSocket sendSocket) {
+        this.remotePort = sendSocket.getPort();
+        this.localPort = sendSocket.getLocalPort();
+    }
+
+    private boolean checkReceivingpacket(DatagramPacket received) {
+        if(remotePort == received.getPort())
+            return true;
+        return false;
+    }
+
+    private boolean checkFileSpace(String fileSize,long freeSpace) {
+        long bytesExcpected = Long.valueOf(fileSize);
+        System.out.println("Requested file upload size: " + bytesExcpected + "  -  Filespace available: " + freeSpace);
+        if(bytesExcpected>freeSpace) {
+            return false;
+        }
+        return true;
+    }
 
 }
 
