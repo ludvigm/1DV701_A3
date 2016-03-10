@@ -149,11 +149,11 @@ public class TFTPServer {
                     }
                     DatagramPacket packet = dataPacket(blockNumber, buffer, length);
 
-                    if (sendPacket(sendSocket, packet, blockNumber++)) {
-                       // System.out.println("Successfull send block" + blockNumber);
-                    } else {
+                    if (!sendPacket(sendSocket, packet, blockNumber++)) {
                         System.err.println("Error. Lost connection.");
                         return;
+                    } else {
+                        //System.out.println("successful send");
                     }
 
 					if (length < 512) {
